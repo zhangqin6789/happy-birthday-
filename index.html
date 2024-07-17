@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>两层生日蛋糕粒子效果</title>
+    <style>
+        @font-face {
+            font-family: 'STCAIYUN';
+            src: url('fonts/STCAIYUN.woff2') format('woff2');
+        }
+        body, html {
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            background-color: black;
+            font-family: 'STCAIYUN', Arial, sans-serif;
+        }
+        #fireworksCanvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+        }
+    </style>
+</head>
+<body>
+    <canvas id="fireworksCanvas"></canvas>
+    <script>
+        const canvas = document.getElementById('fireworksCanvas');
+        const ctx = canvas.getContext('2d');
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+
+        const particles = [];
+        const cakeColors = [
+            '255, 255, 0', // Yellow
+            '255, 255, 204'  // Light Yellow
+        ];
+        const flameColor = '255, 140, 0'; // Orange color for flames
+        const candleColor = '255, 255, 255'; // White color for candles
+        const textParticleColor = '255, 0, 0'; // Red color for text particles
+        let flames = [];
+        let candles = [];
+        let textParticles = [];
+        let textAlpha = Math.random();
+        let flashSpeed = Math.random() * 0.02 + 0.01;
+
+        class Particle {
+            constructor(x, y, color, isFlame = false, isSmoke = false, isCake = false, isCandle = false, size = 2) {
+                this.x = x;
+                this.y = y;
+                this.color = color;
+                this.alpha = isFlame || isCake ? Math.random() : 1;
+                this.size = size;
+                this.flashSpeed = (isFlame || isCake) ? Math.random() * 0.02 + 0.01 : 0;
+                this.isFlame = isFlame;
+                this.isSmoke = isSmoke;
+                this.isCake = isCake;
+                this.isCandle = isCandle;
+                this.smokeSpeed = isSmoke ? Math.random() * 2 + 1 : 0;
+                this.velocityX = 0;
+                this.velocityY = 0;
+            }
+
+            update() {
+                if (this.isFlame || this.isCake) {
+                    this.alpha += this.flashSpeed;
+                    if (this.alpha > 1 || this.alpha < 0) {
+                        this.flashSpeed = -this.flashSpeed;
+                    }
+                } else if (this.isSmoke) {
+                    this.y -= this.smokeSpeed;
+                    this.alpha -= 0.02;
+                    if (this.alpha <= 0) {
+                        particles.splice(particles.indexOf(this), 1);
+                    }
+                } else if (!this.isCandle) {
+                    this.x += this.velocityX;
+                    this.y += this.velocityY;
+                    this.alpha -= 0.01; // Adjusted for slower fade out
+                    if (this.alpha <= 0) {
+                        particles.splice(particles.indexOf(this), 1);
+                    }
+                }
+            }
+
+            draw() {
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2, false);
+                ctx.fillStyle = `rgba(${this.color}, ${this.alpha})`;
+                ctx.fill();
+            }
+        }
+
+        function createCakeParticles() {
+            const centerX = canvas.width / 2;
+            const centerY = canvas.height / 2;
+            const cakeHeight = canvas.height / 10; // Adjusted for 1/4 screen height
+            const bottomLayerWidth = canvas.width / 4;
+            const topLayerWidth = bottomLayerWidth * 0.75;
+            const candleHeight = cakeHeight; // Candle height equal to cake height
+
+            // Bottom layer
+            for (let y = 0; y < cakeHeight; y += 4) {
+                for (let x = 0; x < bottomLayerWidth; x += 4) {
+                    const color = cakeColors[(x + y) % cakeColors.length];
+                    particles.push(new Particle(centerX - bottomLayerWidth / 2 + x, centerY + cakeHeight / 2 - y, color, false, false, true));
+                }
+            }
+
+            // Top layer
+            for (let y = 0; y < cakeHeight; y += 4) {
+                for (let x = 0; x < topLayerWidth; x += 4) {
+                    const color = cakeColors[(x + y) % cakeColors.length];
+                    particles.push(new Particle(centerX - topLayerWidth / 2 + x, centerY - cakeHeight / 2 - y, color, false, false, true));
+                }
+            }
+
+            // Candles
+            const candleWidth = 6;
+            for (let i = -1; i <= 1; i++) {
+                for (let y = 0; y < candleHeight; y += 4) {
+                    for (let x = 0; x < candleWidth; x += 4) {
+                        const candle = new Particle(centerX + i * (topLayerWidth / 3) + x - candleWidth / 2, centerY - cakeHeight - y - 4, candleColor, false, false, false, true);
+                        particles.push(candle);
+                        candles.push(candle);
+                    }
+                }
+            }
+
+            // Candle flames
+            for (let i = -1; i <= 1; i++) {
+                const flame = new Particle(centerX + i * (topLayerWidth / 3), centerY - cakeHeight - candleHeight - 8, flameColor, true);
+                particles.push(flame);
+                flames.push(flame);
+            }
+        }
+
+        function createFirework(x, y) {
+            const numParticles = 100;
+            const speed = 2;
+            for (let i = 0; i < numParticles; i++) {
+                const angle = (Math.PI * 2 * i) / numParticles;
+                const color = `255, ${Math.floor(Math.random() * 256)}, ${Math.floor(Math.random() * 256)}`;
+                const particle = new Particle(x, y, color, false, false, false, false, 3);
+                particle.velocityX = Math.cos(angle) * speed;
+                particle.velocityY = Math.sin(angle) * speed;
+                particles.push(particle);
+            }
+        }
+
+        function createTextParticles() {
+            const text = "生日快乐";
+            ctx.font = "100px 'STCAIYUN', Arial"; // Increased font size and set custom font
+            ctx.fillStyle = `rgba(${textParticleColor}, ${textAlpha})`;
+            ctx.textAlign = "center";
+            const centerX = canvas.width / 2;
+            const centerY = canvas.height / 2;
+
+            ctx.fillText(text, centerX, centerY - canvas.height / 4);
+
+            textAlpha += flashSpeed;
+            if (textAlpha > 1 || textAlpha < 0) {
+                flashSpeed = -flashSpeed;
+            }
+        }
+
+        function extinguishCandles() {
+            flames.forEach(flame => {
+                const smokeColor = '255, 255, 255';
+                for (let i = 0; i < 3; i++) {
+                    particles.push(new Particle(flame.x, flame.y, smokeColor, false, true));
+                }
+                particles.splice(particles.indexOf(flame), 1);
+            });
+            flames = [];
+
+            // Create fireworks at random positions except on the cake
+            for (let i = 0; i < 5; i++) {
+                const x = Math.random() * canvas.width;
+                const y = Math.random() * canvas.height;
+                if (Math.abs(x - canvas.width / 2) > canvas.width / 4 || Math.abs(y - canvas.height / 2) > canvas.height / 4) {
+                    createFirework(x, y);
+                } else {
+                    i--;
+                }
+            }
+        }
+
+        function loop() {
+            requestAnimationFrame(loop);
+            ctx.globalCompositeOperation = 'destination-out';
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.1)';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            ctx.globalCompositeOperation = 'lighter';
+
+            particles.forEach(particle => {
+                particle.update();
+                particle.draw();
+            });
+
+            // Ensure the "生日快乐" text is always visible and flashing
+            createTextParticles();
+        }
+
+        canvas.addEventListener('click', extinguishCandles);
+
+        createCakeParticles();
+        loop();
+    </script>
+</body>
+</html>
